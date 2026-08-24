@@ -1358,6 +1358,31 @@ return [
                     ],
                 ],
             ],
+
+            'monarc_api_admin_identity_providers' => [
+                'type' => 'literal',
+                'options' => [
+                    'route' => '/api/identity-providers',
+                    'defaults' => [
+                        'controller' => Controller\ApiAdminUsersController::class,
+                        'action' => 'identityProviders',
+                    ],
+                ],
+            ],
+
+            'monarc_api_admin_user_identity' => [
+                'type' => 'segment',
+                'options' => [
+                    'route' => '/api/users/:id/identity',
+                    'constraints' => [
+                        'id' => '[0-9]+',
+                    ],
+                    'defaults' => [
+                        'controller' => Controller\ApiAdminUsersController::class,
+                        'action' => 'identity',
+                    ],
+                ],
+            ],
         ],
     ],
 
@@ -1826,6 +1851,8 @@ return [
     ],
     'permissions' => [
         'captcha',
+        'sso-redirect',
+        'sso-callback',
     ],
     'roles' => [
         // Super Admin : Management of users (and guides, models, referentials, etc.)
@@ -1835,6 +1862,8 @@ return [
             'monarc_api_admin_users_roles',
             'monarc_api_admin_users_rights',
             'monarc_api_admin_user_reset_password',
+            'monarc_api_admin_identity_providers',
+            'monarc_api_admin_user_identity',
             'monarc_api_user_password',
             'monarc_api_user_activate_2fa',
             'monarc_api_user_recovery_codes',
