@@ -12,6 +12,8 @@ class FixPositionsCleanupDb extends AbstractMigration
 {
     public function change()
     {
+        $this->execute('SET FOREIGN_KEY_CHECKS = 0;');
+
         // Fix nullable recovery_codes of users.
         $this->execute('update users set recovery_codes = "' . serialize([]) . '" where recovery_codes IS NULL');
         $this->execute('ALTER TABLE `amvs` MODIFY updated_at datetime NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP;');
@@ -142,7 +144,9 @@ class FixPositionsCleanupDb extends AbstractMigration
         }
 
         /* Clean up unused columns. */
-        $this->table('clients')->removeColumn('model_id')->update();
+        if ($this->table('clients')->hasColumn('model_id')) {
+            $this->table('clients')->removeColumn('model_id')->update();
+        }
         $this->table('instances')
             ->removeColumn('disponibility')
             ->removeColumn('asset_type')
@@ -321,10 +325,15 @@ class FixPositionsCleanupDb extends AbstractMigration
         $this->table('anrs_objects')->drop()->update();
         $this->table('anrs_objects_categories')->drop()->update();
 
-        /* Rename table `anr_metadatas_on_instances` to `anr_instance_metadata_fields`. */
-        $this->table('anr_metadatas_on_instances')->rename('anr_instance_metadata_fields')->update();
-        /* Rename table `instances_metadatas` to `instances_metadata`. */
-        $this->table('instances_metadatas')->rename('instances_metadata')->update();
+        /* Recreate table `anr_metadatas_on_instances` as `anr_instance_metadata_fields`. */
+        $this->execute('CREATE TABLE IF NOT EXISTS anr_instance_metadata_fields LIKE anr_metadatas_on_instances;');
+        $this->execute('INSERT IGNORE INTO anr_instance_metadata_fields SELECT * FROM anr_metadatas_on_instances;');
+        $this->execute('DROP TABLE IF EXISTS anr_metadatas_on_instances;');
+
+        /* Recreate table `instances_metadatas` as `instances_metadata`. */
+        $this->execute('CREATE TABLE IF NOT EXISTS instances_metadata LIKE instances_metadatas;');
+        $this->execute('INSERT IGNORE INTO instances_metadata SELECT * FROM instances_metadatas;');
+        $this->execute('DROP TABLE IF EXISTS instances_metadatas;');
 
         /*
          * Migrations for to move the data from translations table and remove it.
@@ -549,5 +558,7 @@ class FixPositionsCleanupDb extends AbstractMigration
             ->update();
         $this->table('translations')->drop();
         */
+        $this->execute('SET FOREIGN_KEY_CHECKS = 1;');
+
     }
 }

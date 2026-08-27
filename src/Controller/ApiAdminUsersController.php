@@ -10,6 +10,7 @@ namespace Monarc\FrontOffice\Controller;
 use Laminas\Mvc\Controller\AbstractRestfulController;
 use Monarc\Core\Controller\Handler\ControllerRequestResponseHandlerTrait;
 use Monarc\Core\InputFormatter\User\GetUsersInputFormatter;
+use Monarc\Core\Service\IdentityManagementService;
 use Monarc\Core\Service\PasswordService;
 use Monarc\FrontOffice\Validator\InputValidator\User\PostUserDataInputValidator;
 use Monarc\FrontOffice\Service\UserService;
@@ -30,12 +31,14 @@ class ApiAdminUsersController extends AbstractRestfulController
         GetUsersInputFormatter $getUsersInputFormatter,
         PostUserDataInputValidator $postUserDataInputValidator,
         UserService $userService,
-        PasswordService $passwordService
+        PasswordService $passwordService,
+        IdentityManagementService $identityManagementService
     ) {
         $this->getUsersInputFormatter = $getUsersInputFormatter;
         $this->postUserDataInputValidator = $postUserDataInputValidator;
         $this->userService = $userService;
         $this->passwordService = $passwordService;
+        $this->identityManagementService = $identityManagementService;
     }
 
     public function getList()
@@ -97,5 +100,44 @@ class ApiAdminUsersController extends AbstractRestfulController
         $this->getResponse()->setStatusCode(204);
 
         return $this->getSuccessfulJsonResponse();
+    }
+
+    /**
+     * GET /api/identity-providers
+     */
+    public function identityProvidersAction()
+    {
+        return $this->getPreparedJsonResponse($this->identityManagementService->getActiveProviders());
+    }
+    /**
+     * GET / POST / DELETE : /api/users/:id/identity
+     */
+    public function identityAction()
+    {
+        $userId = (int)$this->params()->fromRoute('id');
+        $request = $this->getRequest();
+        if ($request->isGet()) {
+            return $this->getPreparedJsonResponse($this->identityManagementService->getUserIdentity($userId));
+        }
+        if ($request->isPost()) {
+            $data = json_decode($request->getContent(), true) ?: [];
+            if (empty($data['providerCode']) || empty($data['providerIdentifier'])) {
+                $this->getResponse()->setStatusCode(400);
+                return $this->getPreparedJsonResponse(['error' => 'Le fournisseur et l\'identifiant SSO sont requis.']);
+            }
+            try {
+                $this->identityManagementService->linkUserIdentityById($userId, (string)$data['providerCode'], (string)$data['providerIdentifier']);
+                return $this->getSuccessfulJsonResponse();
+            } catch (\Throwable $e) {
+                $this->getResponse()->setStatusCode(400);
+                return $this->getPreparedJsonResponse(['error' => $e->getMessage()]);
+            }
+        }
+        if ($request->isDelete()) {
+            $this->identityManagementService->unlinkUserIdentityById($userId);
+            return $this->getSuccessfulJsonResponse();
+        }
+        $this->getResponse()->setStatusCode(405);
+        return $this->getPreparedJsonResponse(['error' => 'Method not allowed']);
     }
 }
