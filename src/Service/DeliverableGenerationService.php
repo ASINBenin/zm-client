@@ -226,7 +226,7 @@ class DeliverableGenerationService
             ->setRespCustomer($data['consultants'] ?? '')
             ->setResponsibleManager($data['managers'] ?? '')
             ->setClassification($data['classification'] ?? '')
-            ->setVersion($data['version'])
+            ->setVersion((string)($data['version'] ?? '1.0'))
             ->setStatus((int)($data['status'] ?? 0))
             ->setSummaryEvalRisk($data['summaryEvalRisk'] ?? '')
             ->setCreator($this->connectedUser->getEmail());
@@ -237,7 +237,21 @@ class DeliverableGenerationService
         $this->currentOutputFormat = $outputFormat;
         $this->setStyles();
 
-        $deliveryModel = $this->deliveriesModelsTable->findById((int)$data['template']);
+        $deliveryModel = null;
+        $templateId = (int)($data['template'] ?? 0);
+        if ($templateId > 0) {
+            try {
+                $deliveryModel = $this->deliveriesModelsTable->findById($templateId);
+            } catch (\Throwable $e) {
+                $deliveryModel = null;
+            }
+        }
+        if (!$deliveryModel) {
+            $deliveryModel = current($this->deliveriesModelsTable->getEntityByFields(['category' => $docType]));
+            if (!$deliveryModel) {
+                $deliveryModel = $this->deliveriesModelsTable->findFirst();
+            }
+        }
 
         $values = [
             'txt' => [

@@ -2006,6 +2006,11 @@ return [
             'routes' => [],
         ],
     ],
+    'monarc_sso' => [
+        'user_entity_class' => Entity\User::class,
+        'encryption_key' => getenv('MONARC_SSO_ENCRYPTION_KEY') ?: null,
+    ],
+
     'permissions' => [
         'captcha',
     ],
@@ -2042,6 +2047,9 @@ return [
             'monarc_api_stats_global/general_settings',
             'monarc_api_stats_global/validate-stats-availability',
             'monarc_api_system_messages',
+            // Sso (module Monarc\Core partagé — voir manage.identity.dialog.html)
+            'monarc_api_admin_user_identity',
+            'monarc_api_admin_identity_providers',
         ],
         // User : RWD access per analysis
         Entity\UserRole::USER_FO => [

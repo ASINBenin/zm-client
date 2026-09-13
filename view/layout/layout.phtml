@@ -14,6 +14,7 @@
     <?php echo $this->headLink(array('rel' => 'shortcut icon', 'type' => 'image/png', 'href' => 'img/favicon.png'))
         ->prependStylesheet('css/style.css')
         ->prependStylesheet('css/anr/anr.css')
+        ->prependStylesheet('css/sign/signature.css')
         ->prependStylesheet('css/material-icons.css')
         ->prependStylesheet('css/angular-common-libs.css') ?>
 
@@ -72,8 +73,25 @@
         ->appendFile(('js/anr/ReassessmentTriggerService.js'))
         ->appendFile('js/anr/InterestedPartyService.js')
 
+        ->appendFile('js/sign/SignModule.js')
+        ->appendFile('js/sign/SignatureRequestService.js')
+        ->appendFile('js/sign/SignatureProcessService.js')
+        ->appendFile('js/sign/BJeTokenService.js')
+        ->appendFile('js/sign/PdfCoordinateHelper.js')
+        ->appendFile('js/sign/PdfViewerDirective.js')
+        ->appendFile('js/sign/OverlayBoxDirective.js')
+        ->appendFile('js/sign/UserSelectorDirective.js')
+        ->appendFile('js/sign/SignatoryCardDirective.js')
+        ->appendFile('js/sign/SignatureStatusChipDirective.js')
+        ->appendFile('js/sign/SignatureSetupCtrl.js')
+        ->appendFile('js/sign/SignatureProcessCtrl.js')
+        ->appendFile('js/sign/SignatureCallbackCtrl.js')
+        ->appendFile('js/sign/SignatureListCtrl.js')
+
+
         // Client app files
         ->appendFile('js/ClientApp.js')
+        ->appendFile('js/SsoLandingCtrl.js')
         ->appendFile('js/UserService.js')
         ->appendFile('js/UserProfileService.js')
         ->appendFile('js/ClientUsersService.js')

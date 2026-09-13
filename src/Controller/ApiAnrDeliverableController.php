@@ -25,9 +25,9 @@ class ApiAnrDeliverableController extends AbstractRestfulControllerRequestHandle
 
     public function create($data)
     {
-        $typeDoc = (int)$data['typedoc'];
+        $typeDoc = (int)($data['typedoc'] ?? 0);
         if (empty($typeDoc)) {
-            throw new Exception('Document type missing', 412);
+            $typeDoc = 1;
         }
 
         /** @var Anr $anr */

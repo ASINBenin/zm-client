@@ -30,7 +30,7 @@ class ApiAdminUsersController extends AbstractRestfulController
         GetUsersInputFormatter $getUsersInputFormatter,
         PostUserDataInputValidator $postUserDataInputValidator,
         UserService $userService,
-        PasswordService $passwordService,
+        PasswordService $passwordService
     ) {
         $this->getUsersInputFormatter = $getUsersInputFormatter;
         $this->postUserDataInputValidator = $postUserDataInputValidator;
