@@ -20,6 +20,7 @@ use Monarc\Core\Service\Helper\ScalesCacheHelper;
 use Monarc\Core\Storage\Authentication as StorageAuthentication;
 use Monarc\Core\Table\Factory\ClientEntityManagerFactory;
 use Monarc\Core\Validator\InputValidator as CoreInputValidator;
+use Monarc\FrontOffice\Campaign;
 use Monarc\FrontOffice\Controller;
 use Monarc\FrontOffice\CronTask;
 use Monarc\FrontOffice\Export;
@@ -1635,6 +1636,7 @@ return [
             Table\ScaleCommentTable::class => ClientEntityManagerFactory::class,
             Table\ScaleImpactTypeTable::class => ClientEntityManagerFactory::class,
             Table\ClientTable::class => ClientEntityManagerFactory::class,
+            Table\CampaignTable::class => ClientEntityManagerFactory::class,
             Table\MonarcObjectTable::class => ClientEntityManagerFactory::class,
             Table\MeasureTable::class => ClientEntityManagerFactory::class,
             Table\ObjectCategoryTable::class => ClientEntityManagerFactory::class,
@@ -1780,6 +1782,9 @@ return [
 
             // Providers
             Stats\Provider\StatsApiProvider::class => ReflectionBasedAbstractFactory::class,
+            Campaign\Provider\BoApiProvider::class => ReflectionBasedAbstractFactory::class,
+            Campaign\Service\CampaignSyncService::class => ReflectionBasedAbstractFactory::class,
+            Campaign\Command\SyncCampaignsCommand::class => ReflectionBasedAbstractFactory::class,
 
             // Validators
             InputValidator\User\PostUserDataInputValidator::class => ReflectionBasedAbstractFactory::class,
