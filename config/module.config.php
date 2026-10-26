@@ -1372,6 +1372,16 @@ return [
                     ],
                 ],
             ],
+            'monarc_api_campaigns' => [
+                'type' => 'literal',
+                'options' => [
+                    'route' => '/api/campaigns',
+                    'defaults' => [
+                        'controller' => PipeSpec::class,
+                        'middleware' => new PipeSpec(Campaign\Controller\ApiCampaignsController::class),
+                    ],
+                ],
+            ],
             'monarc_api_user_password' => [
                 'type' => 'segment',
                 'options' => [
@@ -1513,6 +1523,7 @@ return [
             Controller\ApiSoaCategoryController::class => AutowireFactory::class,
             Controller\ApiDashboardAnrCartoRisksController::class => AutowireFactory::class,
             Controller\ApiDeliveriesModelsController::class => AutowireFactory::class,
+            Campaign\Controller\ApiCampaignsController::class => AutowireFactory::class,
             Controller\ApiAnrTreatmentPlanController::class => AutowireFactory::class,
             Controller\ApiAnrRecommendationsController::class => AutowireFactory::class,
             Controller\ApiAnrRecommendationsHistoryController::class => AutowireFactory::class,
@@ -1784,6 +1795,7 @@ return [
             Stats\Provider\StatsApiProvider::class => ReflectionBasedAbstractFactory::class,
             Campaign\Provider\BoApiProvider::class => ReflectionBasedAbstractFactory::class,
             Campaign\Service\CampaignSyncService::class => ReflectionBasedAbstractFactory::class,
+            Campaign\Service\CampaignService::class => ReflectionBasedAbstractFactory::class,
             Campaign\Command\SyncCampaignsCommand::class => ReflectionBasedAbstractFactory::class,
 
             // Validators
@@ -2023,6 +2035,7 @@ return [
         // Super Admin : Management of users (and guides, models, referentials, etc.)
         Entity\UserRole::SUPER_ADMIN_FO => [
             'monarc_api_doc_models',
+            'monarc_api_campaigns',
             'monarc_api_admin_users',
             'monarc_api_admin_users_roles',
             'monarc_api_admin_users_rights',

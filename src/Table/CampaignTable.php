@@ -19,6 +19,14 @@ class CampaignTable extends AbstractTable
     }
 
     /**
+     * @return Campaign[]
+     */
+    public function findAllByStartDateDesc(): array
+    {
+        return $this->getRepository()->findBy([], ['startDate' => 'DESC', 'id' => 'DESC']);
+    }
+
+    /**
      * Instant (timestamp Unix) de la dernière synchronisation, ou null si aucune campagne n'a encore été reçue.
      */
     public function findLastSyncedAt(): ?int
