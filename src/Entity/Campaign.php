@@ -46,6 +46,13 @@ class Campaign
     protected ?string $description = null;
 
     /**
+     * Modèle du BO sur lequel l'analyse de la campagne est créée.
+     *
+     * @ORM\Column(name="model_id", type="integer")
+     */
+    protected int $modelId;
+
+    /**
      * @ORM\Column(name="status", type="string", length=20)
      */
     protected string $status;
@@ -74,6 +81,14 @@ class Campaign
      * @ORM\Column(name="is_signature_required", type="boolean")
      */
     protected bool $isSignatureRequired = false;
+
+    /**
+     * Analyse créée quand l'entité a participé ; null avant, ou si l'analyse a été supprimée.
+     *
+     * @ORM\ManyToOne(targetEntity="Anr")
+     * @ORM\JoinColumn(name="anr_id", referencedColumnName="id", nullable=true, onDelete="SET NULL")
+     */
+    protected ?Anr $anr = null;
 
     /**
      * @ORM\Column(name="synced_at", type="bigint")
@@ -115,6 +130,18 @@ class Campaign
     public function setDescription(?string $description): self
     {
         $this->description = $description;
+
+        return $this;
+    }
+
+    public function getModelId(): int
+    {
+        return $this->modelId;
+    }
+
+    public function setModelId(int $modelId): self
+    {
+        $this->modelId = $modelId;
 
         return $this;
     }
@@ -178,6 +205,18 @@ class Campaign
     public function setIsSignatureRequired(bool $isSignatureRequired): self
     {
         $this->isSignatureRequired = $isSignatureRequired;
+
+        return $this;
+    }
+
+    public function getAnr(): ?Anr
+    {
+        return $this->anr;
+    }
+
+    public function setAnr(Anr $anr): self
+    {
+        $this->anr = $anr;
 
         return $this;
     }

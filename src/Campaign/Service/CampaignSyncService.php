@@ -48,6 +48,7 @@ class CampaignSyncService
 
         $campaign->setLabel($boCampaign['label'])
             ->setDescription($boCampaign['description'])
+            ->setModelId($boCampaign['modelId'])
             ->setStatus($boCampaign['status'])
             ->setParticipationStatus($boCampaign['participation']['status'])
             ->setDates(

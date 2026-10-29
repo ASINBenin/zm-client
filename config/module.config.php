@@ -1382,6 +1382,19 @@ return [
                     ],
                 ],
             ],
+            'monarc_api_campaign_participation' => [
+                'type' => 'segment',
+                'options' => [
+                    'route' => '/api/campaigns/:campaignId/participation',
+                    'constraints' => [
+                        'campaignId' => '[0-9]+',
+                    ],
+                    'defaults' => [
+                        'controller' => PipeSpec::class,
+                        'middleware' => new PipeSpec(Campaign\Controller\ApiCampaignParticipationController::class),
+                    ],
+                ],
+            ],
             'monarc_api_user_password' => [
                 'type' => 'segment',
                 'options' => [
@@ -1524,6 +1537,7 @@ return [
             Controller\ApiDashboardAnrCartoRisksController::class => AutowireFactory::class,
             Controller\ApiDeliveriesModelsController::class => AutowireFactory::class,
             Campaign\Controller\ApiCampaignsController::class => AutowireFactory::class,
+            Campaign\Controller\ApiCampaignParticipationController::class => AutowireFactory::class,
             Controller\ApiAnrTreatmentPlanController::class => AutowireFactory::class,
             Controller\ApiAnrRecommendationsController::class => AutowireFactory::class,
             Controller\ApiAnrRecommendationsHistoryController::class => AutowireFactory::class,
@@ -2036,6 +2050,7 @@ return [
         Entity\UserRole::SUPER_ADMIN_FO => [
             'monarc_api_doc_models',
             'monarc_api_campaigns',
+            'monarc_api_campaign_participation',
             'monarc_api_admin_users',
             'monarc_api_admin_users_roles',
             'monarc_api_admin_users_rights',
