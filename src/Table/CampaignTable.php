@@ -4,6 +4,7 @@ namespace Monarc\FrontOffice\Table;
 
 use Doctrine\ORM\EntityManager;
 use Monarc\Core\Table\AbstractTable;
+use Monarc\FrontOffice\Entity\Anr;
 use Monarc\FrontOffice\Entity\Campaign;
 
 class CampaignTable extends AbstractTable
@@ -16,6 +17,14 @@ class CampaignTable extends AbstractTable
     public function findOneByBoCampaignId(int $boCampaignId): ?Campaign
     {
         return $this->getRepository()->findOneBy(['boCampaignId' => $boCampaignId]);
+    }
+
+    /**
+     * Campagne dont l'analyse est celle donnée, ou null pour une analyse libre.
+     */
+    public function findOneByAnr(Anr $anr): ?Campaign
+    {
+        return $this->getRepository()->findOneBy(['anr' => $anr]);
     }
 
     /**

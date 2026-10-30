@@ -28,6 +28,7 @@ class AnrService
 
     public function __construct(
         private Table\AnrTable $anrTable,
+        private Table\CampaignTable $campaignTable,
         private Table\UserAnrTable $userAnrTable,
         private Table\UserTable $userTable,
         private Table\InstanceTable $instanceTable,
@@ -616,6 +617,8 @@ class AnrService
             ];
         }
 
+        $campaign = $anr->isAnrSnapshot() ? null : $this->campaignTable->findOneByAnr($anr);
+
         $anrData = [
             'id' => $anr->getId(),
             'uuid' => $anr->getUuid(),
@@ -635,6 +638,8 @@ class AnrService
             'isCurrentAnr' => (int)($this->connectedUser->getCurrentAnr() !== null
                 && $this->connectedUser->getCurrentAnr()->getId() === $anr->getId()),
             'status' => $anr->getStatus(),
+            'campaignLocked' => (int)($campaign !== null),
+            'campaignClosed' => (int)($campaign !== null && $campaign->isClosed()),
             'creator' => $anr->getCreator(),
             'createdAt' => $anr->getCreatedAt()->format('d/m/Y H:i'),
             'language' => $anr->getLanguage(),

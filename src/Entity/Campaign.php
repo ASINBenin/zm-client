@@ -21,6 +21,8 @@ class Campaign
     use CreateEntityTrait;
     use UpdateEntityTrait;
 
+    public const STATUS_CLOSED = 'closed';
+
     /**
      * @ORM\Column(name="id", type="integer", nullable=false)
      * @ORM\Id
@@ -156,6 +158,11 @@ class Campaign
         $this->status = $status;
 
         return $this;
+    }
+
+    public function isClosed(): bool
+    {
+        return $this->status === self::STATUS_CLOSED;
     }
 
     public function getParticipationStatus(): string

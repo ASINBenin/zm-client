@@ -42,10 +42,26 @@ class AnrValidationMiddleware implements MiddlewareInterface
         'residualAcceptancePerformedOnBehalf',
     ];
 
+    /**
+     * Routes d'évaluation, les seules modifiables sur l'analyse d'une campagne ouverte.
+     */
+    private const CAMPAIGN_EVALUATION_ROUTES = [
+        'monarc_api_global_client_anr/instance_risk',
+        'monarc_api_global_client_anr/instance_risk_op',
+        'monarc_api_global_client_anr/instance_consequences',
+        'monarc_api_global_client_anr/recommendations',
+        'monarc_api_global_client_anr/recommendations_risks',
+        'monarc_api_global_client_anr/recommendations_risks_validate',
+        'monarc_api_global_client_anr/risks_management/batch_update',
+        'monarc_api_global_client_anr/instance_risk_residual_acceptance',
+        'monarc_api_global_client_anr/instance_risk_op_residual_acceptance',
+    ];
+
     private Entity\User $connectedUser;
 
     public function __construct(
         private Table\AnrTable $anrTable,
+        private Table\CampaignTable $campaignTable,
         private Table\UserAnrTable $userAnrTable,
         private Table\InstanceTable $instanceTable,
         private Table\InstanceRiskTable $instanceRiskTable,
@@ -126,6 +142,13 @@ class AnrValidationMiddleware implements MiddlewareInterface
             );
         }
 
+        if ($this->isLockedByCampaign($anr, $request->getMethod(), $routeMatch->getMatchedRouteName())) {
+            return $this->responseFactory->createResponse(
+                StatusCodeInterface::STATUS_FORBIDDEN,
+                sprintf('Analysis with ID %s is locked by a campaign.', $anrId)
+            );
+        }
+
         /* A batch of routes has to be excluded from post (isPostAuthorizedForRoute) to bypass forbidden response. */
         /* Supervisor is allowed to modify specific fields of risks, even if there is no explicit permission
             for the anr. Depends on the relation to the risk (Risk Owner or Approver). */
@@ -161,6 +184,27 @@ class AnrValidationMiddleware implements MiddlewareInterface
         return $route->getMatchedRouteName() === 'monarc_api_client_anr'
             && \in_array($request->getMethod(), [Request::METHOD_GET, Request::METHOD_POST], true)
             && $route->getParam('id') === null;
+    }
+
+    /**
+     * The analysis of a campaign keeps the structure of its model: only the evaluations can change while the
+     * campaign is open, and nothing once it is closed. Exports and deliverables stay available.
+     */
+    private function isLockedByCampaign(Entity\Anr $anr, string $method, string $routeName): bool
+    {
+        if ($method === Request::METHOD_GET
+            || $anr->isAnrSnapshot()
+            || $this->isPostAuthorizedForRoute($routeName, $method)
+        ) {
+            return false;
+        }
+
+        $campaign = $this->campaignTable->findOneByAnr($anr);
+        if ($campaign === null) {
+            return false;
+        }
+
+        return $campaign->isClosed() || !\in_array($routeName, self::CAMPAIGN_EVALUATION_ROUTES, true);
     }
 
     /**
