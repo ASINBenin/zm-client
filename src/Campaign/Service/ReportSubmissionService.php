@@ -6,6 +6,7 @@ use DateTime;
 use DateTimeInterface;
 use DateTimeZone;
 use Monarc\Core\Entity\DeliveriesModels;
+use Monarc\Core\Exception\Exception;
 use Monarc\Core\Service\ConnectedUserService;
 use Monarc\FrontOffice\Campaign\Exception\BoApiException;
 use Monarc\FrontOffice\Campaign\Provider\BoApiProvider;
@@ -34,30 +35,22 @@ class ReportSubmissionService
     }
 
     /**
-     * Génère le rapport final en PDF et l'envoie au BO, qui en fait une nouvelle version.
-     * Le rapport est généré à l'envoi : c'est l'état de l'analyse à cet instant qui est figé.
+     * Envoie le rapport final de l'analyse au BO, qui en fait une nouvelle version.
+     * Une campagne qui exige la signature reçoit le PDF signé de la dernière demande de signature terminée ;
+     * sinon le rapport est généré à l'envoi et c'est l'état de l'analyse à cet instant qui est figé (non signé).
      *
      * @return array{submission: array}
      */
     public function submit(Anr $anr): array
     {
         $campaign = $this->campaignTable->findOneByAnr($anr);
-
-        $report = $this->deliverableGenerationService->generateDeliverableWithValues(
-            $anr,
-            DeliveriesModels::MODEL_RISK_ANALYSIS,
-            [
-                'format' => 'pdf',
-                'status' => 1,
-                'docname' => $anr->getLabel(),
-                'version' => (string)(\count($this->reportSubmissionTable->findNewestFirstByAnr($anr)) + 1),
-            ]
-        );
+        $signedReportPath = $campaign?->isSignatureRequired() ? $this->getSignedReportPath($anr) : null;
+        $isSigned = $signedReportPath !== null;
+        $reportPath = $signedReportPath ?? $this->generateReport($anr);
 
         try {
-            $isSigned = $this->reportSubmissionTable->hasSignedSignatureRequest($anr);
             $boSubmission = $this->boApiProvider->submitReport(
-                $report['path'],
+                $reportPath,
                 $anr->getId(),
                 $anr->getLabel(),
                 $isSigned,
@@ -67,7 +60,9 @@ class ReportSubmissionService
         } catch (BoApiException $e) {
             throw $e->toUserFacingException();
         } finally {
-            unlink($report['path']);
+            if (!$isSigned) {
+                unlink($reportPath);
+            }
         }
 
         $submission = new ReportSubmission(
@@ -105,6 +100,36 @@ class ReportSubmissionService
             ),
             'synchronization' => $synchronization,
         ];
+    }
+
+    private function getSignedReportPath(Anr $anr): string
+    {
+        $path = $this->reportSubmissionTable->findLastSignedReportPath($anr);
+        if ($path === null || !is_file($path)) {
+            throw new Exception(
+                'Cette campagne exige un rapport signé : faites signer le rapport final avant de l\'envoyer.',
+                412
+            );
+        }
+
+        return $path;
+    }
+
+    /**
+     * @return string Chemin du PDF généré, que l'appelant supprime après l'envoi.
+     */
+    private function generateReport(Anr $anr): string
+    {
+        return $this->deliverableGenerationService->generateDeliverableWithValues(
+            $anr,
+            DeliveriesModels::MODEL_RISK_ANALYSIS,
+            [
+                'format' => 'pdf',
+                'status' => 1,
+                'docname' => $anr->getLabel(),
+                'version' => (string)(\count($this->reportSubmissionTable->findNewestFirstByAnr($anr)) + 1),
+            ]
+        )['path'];
     }
 
     /**
