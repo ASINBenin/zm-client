@@ -83,10 +83,7 @@ class CampaignService
         try {
             return $this->boApiProvider->participate($campaign->getBoCampaignId());
         } catch (BoApiException $e) {
-            // 412 : refus du BO (hors période, non invitée), dont le motif est destiné à l'utilisateur
-            throw $e->getCode() === 412
-                ? new Exception($e->getMessage(), 412, $e)
-                : new Exception('Le Back-Office est injoignable, réessayez plus tard.', 503, $e);
+            throw $e->toUserFacingException();
         }
     }
 

@@ -18,6 +18,7 @@ use Monarc\FrontOffice\Exception\InvalidConfigurationException;
 class BoApiProvider
 {
     private const DEFAULT_TIMEOUT = 30;
+    private const UPLOAD_TIMEOUT = 120;
 
     /** @var array */
     private $config;
@@ -72,6 +73,44 @@ class BoApiProvider
         }
 
         return $data['participation']['status'];
+    }
+
+    /**
+     * Envoie le rapport PDF d'une analyse : nouvelle version dans la campagne, ou hors campagne si $boCampaignId est
+     * null. Un envoi refusé (campagne clôturée, entité sans participation) lève une BoApiException de code 412.
+     *
+     * @return array Version enregistrée par le BO (id, version, fileSize, sha256, submittedAt...).
+     *
+     * @throws BoApiException|InvalidConfigurationException
+     */
+    public function submitReport(
+        string $pdfPath,
+        int $anrId,
+        string $analysisLabel,
+        bool $isSigned,
+        string $submittedBy,
+        ?int $boCampaignId
+    ): array {
+        $fields = [
+            'anrId' => $anrId,
+            'analysisLabel' => $analysisLabel,
+            'isSigned' => (int)$isSigned,
+            'submittedBy' => $submittedBy,
+        ];
+        if ($boCampaignId !== null) {
+            $fields['campaignId'] = $boCampaignId;
+        }
+        $multipart = [['name' => 'file', 'contents' => fopen($pdfPath, 'rb'), 'filename' => 'report.pdf']];
+        foreach ($fields as $name => $value) {
+            $multipart[] = ['name' => $name, 'contents' => (string)$value];
+        }
+
+        $data = $this->request('POST', 'submissions', ['multipart' => $multipart, 'timeout' => self::UPLOAD_TIMEOUT]);
+        if (!is_array($data['submission'] ?? null) || !isset($data['submission']['id'], $data['submission']['version'])) {
+            throw new BoApiException('Unexpected BackOffice response format.');
+        }
+
+        return $data['submission'];
     }
 
     /**

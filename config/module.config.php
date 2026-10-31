@@ -1280,6 +1280,19 @@ return [
                             ],
                         ],
                     ],
+                    'submissions' => [
+                        'type' => 'literal',
+                        'options' => [
+                            'route' => 'submissions',
+                            'defaults' => [
+                                'controller' => PipeSpec::class,
+                                'middleware' => new PipeSpec(
+                                    AnrValidationMiddleware::class,
+                                    Campaign\Controller\ApiAnrSubmissionsController::class,
+                                ),
+                            ],
+                        ],
+                    ],
                     'objects_objects' => [
                         'type' => 'segment',
                         'options' => [
@@ -1552,6 +1565,7 @@ return [
             Campaign\Controller\ApiCampaignsController::class => AutowireFactory::class,
             Campaign\Controller\ApiCampaignParticipationController::class => AutowireFactory::class,
             Campaign\Controller\ApiCampaignAccessController::class => AutowireFactory::class,
+            Campaign\Controller\ApiAnrSubmissionsController::class => AutowireFactory::class,
             Controller\ApiAnrTreatmentPlanController::class => AutowireFactory::class,
             Controller\ApiAnrRecommendationsController::class => AutowireFactory::class,
             Controller\ApiAnrRecommendationsHistoryController::class => AutowireFactory::class,
@@ -1676,6 +1690,7 @@ return [
             Table\ScaleImpactTypeTable::class => ClientEntityManagerFactory::class,
             Table\ClientTable::class => ClientEntityManagerFactory::class,
             Table\CampaignTable::class => ClientEntityManagerFactory::class,
+            Table\ReportSubmissionTable::class => ClientEntityManagerFactory::class,
             Table\MonarcObjectTable::class => ClientEntityManagerFactory::class,
             Table\MeasureTable::class => ClientEntityManagerFactory::class,
             Table\ObjectCategoryTable::class => ClientEntityManagerFactory::class,
@@ -1825,6 +1840,7 @@ return [
             Campaign\Service\CampaignSyncService::class => ReflectionBasedAbstractFactory::class,
             Campaign\Service\CampaignService::class => ReflectionBasedAbstractFactory::class,
             Campaign\Service\CampaignAccessService::class => ReflectionBasedAbstractFactory::class,
+            Campaign\Service\ReportSubmissionService::class => ReflectionBasedAbstractFactory::class,
             Campaign\Command\SyncCampaignsCommand::class => ReflectionBasedAbstractFactory::class,
 
             // Validators
@@ -2158,6 +2174,7 @@ return [
             'monarc_api_global_client_anr/threats',
             'monarc_api_global_client_anr/vulnerabilities',
             'monarc_api_global_client_anr/deliverable',
+            'monarc_api_global_client_anr/submissions',
             'monarc_api_duplicate_client_anr',
             'monarc_api_models',
             'monarc_api_referentials',
