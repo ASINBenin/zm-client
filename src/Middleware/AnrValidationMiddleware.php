@@ -45,11 +45,15 @@ class AnrValidationMiddleware implements MiddlewareInterface
     /**
      * Routes d'évaluation, les seules modifiables sur l'analyse d'une campagne ouverte.
      */
+    /** Steps of the method that depend only on the evaluations: marking them done is allowed in a campaign. */
+    private const CAMPAIGN_PROGRESS_FIELDS = ['evalRisks', 'evalPlanRisks', 'manageRisks'];
+
     private const CAMPAIGN_EVALUATION_ROUTES = [
         'monarc_api_global_client_anr/instance_risk',
         'monarc_api_global_client_anr/instance_risk_op',
         'monarc_api_global_client_anr/instance_consequences',
         'monarc_api_global_client_anr/recommendations',
+        'monarc_api_global_client_anr/recommendations_sets',
         'monarc_api_global_client_anr/recommendations_risks',
         'monarc_api_global_client_anr/recommendations_risks_validate',
         'monarc_api_global_client_anr/risks_management/batch_update',
@@ -143,7 +147,7 @@ class AnrValidationMiddleware implements MiddlewareInterface
             );
         }
 
-        if ($this->isLockedByCampaign($anr, $request->getMethod(), $routeMatch->getMatchedRouteName())) {
+        if ($this->isLockedByCampaign($anr, $request, $routeMatch->getMatchedRouteName())) {
             return $this->responseFactory->createResponse(
                 StatusCodeInterface::STATUS_FORBIDDEN,
                 sprintf('Analysis with ID %s is locked by a campaign.', $anrId)
@@ -192,8 +196,9 @@ class AnrValidationMiddleware implements MiddlewareInterface
      * campaign is open, and nothing once it is closed. Exports and deliverables stay available.
      * Sending the report to the BackOffice is allowed while the campaign is open.
      */
-    private function isLockedByCampaign(Entity\Anr $anr, string $method, string $routeName): bool
+    private function isLockedByCampaign(Entity\Anr $anr, ServerRequestInterface $request, string $routeName): bool
     {
+        $method = $request->getMethod();
         if ($method === Request::METHOD_GET
             || $anr->isAnrSnapshot()
             || $this->isPostAuthorizedForRoute($routeName, $method)
@@ -206,7 +211,31 @@ class AnrValidationMiddleware implements MiddlewareInterface
             return false;
         }
 
-        return $campaign->isClosed() || !\in_array($routeName, self::CAMPAIGN_EVALUATION_ROUTES, true);
+        return $campaign->isClosed()
+            || !(\in_array($routeName, self::CAMPAIGN_EVALUATION_ROUTES, true)
+                || $this->isStepProgressUpdate($request, $routeName));
+    }
+
+    /**
+     * The update of the analysis itself is allowed only to mark the evaluation steps of the method as done.
+     */
+    private function isStepProgressUpdate(ServerRequestInterface $request, string $routeName): bool
+    {
+        if ($routeName !== 'monarc_api_client_anr' || $request->getMethod() !== Request::METHOD_PATCH) {
+            return false;
+        }
+
+        $data = $request->getParsedBody();
+        if (empty($data)) {
+            $data = json_decode((string)$request->getBody(), true);
+        }
+        if (!\is_array($data)) {
+            return false;
+        }
+
+        $fields = array_diff(array_keys($data), ['id']);
+
+        return $fields !== [] && array_diff($fields, self::CAMPAIGN_PROGRESS_FIELDS) === [];
     }
 
     /**
