@@ -5,6 +5,7 @@ define('PROJECT_ROOT', __DIR__ . '/../../../../');
 
 require PROJECT_ROOT . 'vendor/autoload.php';
 
+use Monarc\FrontOffice\Campaign\Command\SendCampaignRemindersCommand;
 use Monarc\FrontOffice\Campaign\Command\SyncCampaignsCommand;
 use Monarc\FrontOffice\Import\Command\ImportAnalysesCommand;
 use Monarc\FrontOffice\Stats\Command\CollectStatsCommand;
@@ -23,5 +24,6 @@ $consoleApp->add($laminasApp->getServiceManager()->get(FixRecommendationsPositio
 $consoleApp->add($laminasApp->getServiceManager()->get(CollectStatsCommand::class));
 $consoleApp->add($laminasApp->getServiceManager()->get(ImportAnalysesCommand::class));
 $consoleApp->add($laminasApp->getServiceManager()->get(SyncCampaignsCommand::class));
+$consoleApp->add($laminasApp->getServiceManager()->get(SendCampaignRemindersCommand::class));
 
 $consoleApp->run();

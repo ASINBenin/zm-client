@@ -1691,6 +1691,7 @@ return [
             Table\ClientTable::class => ClientEntityManagerFactory::class,
             Table\CampaignTable::class => ClientEntityManagerFactory::class,
             Table\ReportSubmissionTable::class => ClientEntityManagerFactory::class,
+            Table\CampaignNotificationTable::class => ClientEntityManagerFactory::class,
             Table\MonarcObjectTable::class => ClientEntityManagerFactory::class,
             Table\MeasureTable::class => ClientEntityManagerFactory::class,
             Table\ObjectCategoryTable::class => ClientEntityManagerFactory::class,
@@ -1842,6 +1843,8 @@ return [
             Campaign\Service\CampaignAccessService::class => ReflectionBasedAbstractFactory::class,
             Campaign\Service\ReportSubmissionService::class => ReflectionBasedAbstractFactory::class,
             Campaign\Command\SyncCampaignsCommand::class => ReflectionBasedAbstractFactory::class,
+            Campaign\Command\SendCampaignRemindersCommand::class => ReflectionBasedAbstractFactory::class,
+            Campaign\Service\CampaignReminderService::class => ReflectionBasedAbstractFactory::class,
 
             // Validators
             InputValidator\User\PostUserDataInputValidator::class => ReflectionBasedAbstractFactory::class,
