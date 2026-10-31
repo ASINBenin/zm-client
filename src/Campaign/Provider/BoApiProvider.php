@@ -114,6 +114,23 @@ class BoApiProvider
     }
 
     /**
+     * Versions de rapport envoyées par l'entité, avec l'appréciation de l'ASIN quand elle existe.
+     *
+     * @return array[]
+     *
+     * @throws BoApiException|InvalidConfigurationException
+     */
+    public function getSubmissions(): array
+    {
+        $data = $this->request('GET', 'submissions');
+        if (!is_array($data['submissions'] ?? null)) {
+            throw new BoApiException('Unexpected BackOffice response format.');
+        }
+
+        return $data['submissions'];
+    }
+
+    /**
      * @throws BoApiException|InvalidConfigurationException
      */
     private function request(string $method, string $uri, array $options = []): array

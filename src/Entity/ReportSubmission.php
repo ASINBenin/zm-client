@@ -2,6 +2,7 @@
 
 namespace Monarc\FrontOffice\Entity;
 
+use DateTime;
 use Doctrine\ORM\Mapping as ORM;
 use Monarc\Core\Entity\Traits\CreateEntityTrait;
 
@@ -61,6 +62,23 @@ class ReportSubmission
      */
     protected bool $isSigned;
 
+    /**
+     * Appréciation de l'ASIN, copie de celle du BO.
+     *
+     * @ORM\Column(name="appreciation_level", type="string", length=20, nullable=true)
+     */
+    protected ?string $appreciationLevel = null;
+
+    /**
+     * @ORM\Column(name="appreciation_comment", type="text", nullable=true)
+     */
+    protected ?string $appreciationComment = null;
+
+    /**
+     * @ORM\Column(name="appreciated_at", type="datetime", nullable=true)
+     */
+    protected ?DateTime $appreciatedAt = null;
+
     public function __construct(
         Anr $anr,
         int $boSubmissionId,
@@ -86,6 +104,11 @@ class ReportSubmission
         return $this->id;
     }
 
+    public function getBoSubmissionId(): int
+    {
+        return $this->boSubmissionId;
+    }
+
     public function getBoCampaignId(): ?int
     {
         return $this->boCampaignId;
@@ -109,5 +132,38 @@ class ReportSubmission
     public function isSigned(): bool
     {
         return $this->isSigned;
+    }
+
+    public function getAppreciationLevel(): ?string
+    {
+        return $this->appreciationLevel;
+    }
+
+    public function getAppreciationComment(): ?string
+    {
+        return $this->appreciationComment;
+    }
+
+    public function getAppreciatedAt(): ?DateTime
+    {
+        return $this->appreciatedAt;
+    }
+
+    /**
+     * Recopie l'appréciation du BO ; renvoie false si elle est déjà à jour.
+     */
+    public function copyAppreciation(string $level, ?string $comment, DateTime $appreciatedAt): bool
+    {
+        if ($this->appreciationLevel === $level
+            && $this->appreciationComment === $comment
+            && $this->appreciatedAt == $appreciatedAt
+        ) {
+            return false;
+        }
+        $this->appreciationLevel = $level;
+        $this->appreciationComment = $comment;
+        $this->appreciatedAt = $appreciatedAt;
+
+        return true;
     }
 }

@@ -2,13 +2,16 @@
 
 namespace Monarc\FrontOffice\Campaign\Service;
 
+use DateTime;
 use DateTimeInterface;
+use DateTimeZone;
 use Monarc\Core\Entity\DeliveriesModels;
 use Monarc\Core\Service\ConnectedUserService;
 use Monarc\FrontOffice\Campaign\Exception\BoApiException;
 use Monarc\FrontOffice\Campaign\Provider\BoApiProvider;
 use Monarc\FrontOffice\Entity\Anr;
 use Monarc\FrontOffice\Entity\ReportSubmission;
+use Monarc\FrontOffice\Exception\InvalidConfigurationException;
 use Monarc\FrontOffice\Service\DeliverableGenerationService;
 use Monarc\FrontOffice\Table\CampaignTable;
 use Monarc\FrontOffice\Table\ReportSubmissionTable;
@@ -83,18 +86,60 @@ class ReportSubmissionService
     }
 
     /**
-     * Versions envoyées pour l'analyse, la plus récente d'abord.
+     * Versions envoyées pour l'analyse, la plus récente d'abord, avec l'appréciation de l'ASIN. Elle est relue du BO ;
+     * s'il est injoignable, ce sont les dernières appréciations reçues et "synchronization" indique pourquoi.
      *
-     * @return array{submissions: array[]}
+     * @return array{submissions: array[], synchronization: string}
      */
     public function getSubmissions(Anr $anr): array
     {
+        $submissions = $this->reportSubmissionTable->findNewestFirstByAnr($anr);
+        $synchronization = $submissions === []
+            ? CampaignService::SYNCHRONIZATION_OK
+            : $this->refreshAppreciations($submissions);
+
         return [
             'submissions' => array_map(
                 fn (ReportSubmission $submission) => $this->getPreparedSubmissionData($submission),
-                $this->reportSubmissionTable->findNewestFirstByAnr($anr)
+                $submissions
             ),
+            'synchronization' => $synchronization,
         ];
+    }
+
+    /**
+     * @param ReportSubmission[] $submissions
+     *
+     * @return string Résultat de la synchronisation (constantes de CampaignService).
+     */
+    private function refreshAppreciations(array $submissions): string
+    {
+        try {
+            $boSubmissions = $this->boApiProvider->getSubmissions();
+        } catch (InvalidConfigurationException) {
+            return CampaignService::SYNCHRONIZATION_NOT_CONFIGURED;
+        } catch (BoApiException) {
+            return CampaignService::SYNCHRONIZATION_FAILED;
+        }
+
+        $appreciations = [];
+        foreach ($boSubmissions as $boSubmission) {
+            if (isset($boSubmission['id'], $boSubmission['appreciation']['level'])) {
+                $appreciations[(int)$boSubmission['id']] = $boSubmission['appreciation'];
+            }
+        }
+        foreach ($submissions as $submission) {
+            $appreciation = $appreciations[$submission->getBoSubmissionId()] ?? null;
+            if ($appreciation !== null && $submission->copyAppreciation(
+                $appreciation['level'],
+                $appreciation['comment'] ?? null,
+                (new DateTime($appreciation['appreciatedAt']))->setTimezone(new DateTimeZone(date_default_timezone_get()))
+            )) {
+                $this->reportSubmissionTable->save($submission);
+            }
+        }
+
+        return CampaignService::SYNCHRONIZATION_OK;
     }
 
     private function getPreparedSubmissionData(ReportSubmission $submission): array
@@ -108,6 +153,11 @@ class ReportSubmissionService
             'isSigned' => $submission->isSigned(),
             'submittedBy' => $submission->getCreator(),
             'submittedAt' => $submission->getCreatedAt()->format(DateTimeInterface::ATOM),
+            'appreciation' => $submission->getAppreciationLevel() === null ? null : [
+                'level' => $submission->getAppreciationLevel(),
+                'comment' => $submission->getAppreciationComment(),
+                'appreciatedAt' => $submission->getAppreciatedAt()->format(DateTimeInterface::ATOM),
+            ],
         ];
     }
 }
