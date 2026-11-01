@@ -1293,6 +1293,38 @@ return [
                             ],
                         ],
                     ],
+                    'prepared_reports' => [
+                        'type' => 'segment',
+                        'options' => [
+                            'route' => 'prepared-reports[/:id]',
+                            'constraints' => [
+                                'id' => '[0-9a-f]{32}',
+                            ],
+                            'defaults' => [
+                                'controller' => PipeSpec::class,
+                                'middleware' => new PipeSpec(
+                                    AnrValidationMiddleware::class,
+                                    Campaign\Controller\ApiAnrPreparedReportsController::class,
+                                ),
+                            ],
+                        ],
+                    ],
+                    'signed_reports' => [
+                        'type' => 'segment',
+                        'options' => [
+                            'route' => 'signed-reports[/:id]',
+                            'constraints' => [
+                                'id' => '[0-9]+',
+                            ],
+                            'defaults' => [
+                                'controller' => PipeSpec::class,
+                                'middleware' => new PipeSpec(
+                                    AnrValidationMiddleware::class,
+                                    Campaign\Controller\ApiAnrSignedReportsController::class,
+                                ),
+                            ],
+                        ],
+                    ],
                     'objects_objects' => [
                         'type' => 'segment',
                         'options' => [
@@ -1566,6 +1598,8 @@ return [
             Campaign\Controller\ApiCampaignParticipationController::class => AutowireFactory::class,
             Campaign\Controller\ApiCampaignAccessController::class => AutowireFactory::class,
             Campaign\Controller\ApiAnrSubmissionsController::class => AutowireFactory::class,
+            Campaign\Controller\ApiAnrPreparedReportsController::class => AutowireFactory::class,
+            Campaign\Controller\ApiAnrSignedReportsController::class => AutowireFactory::class,
             Controller\ApiAnrTreatmentPlanController::class => AutowireFactory::class,
             Controller\ApiAnrRecommendationsController::class => AutowireFactory::class,
             Controller\ApiAnrRecommendationsHistoryController::class => AutowireFactory::class,
@@ -1842,6 +1876,7 @@ return [
             Campaign\Service\CampaignService::class => ReflectionBasedAbstractFactory::class,
             Campaign\Service\CampaignAccessService::class => ReflectionBasedAbstractFactory::class,
             Campaign\Service\ReportSubmissionService::class => ReflectionBasedAbstractFactory::class,
+            Campaign\Service\ReportDraftService::class => ReflectionBasedAbstractFactory::class,
             Campaign\Command\SyncCampaignsCommand::class => ReflectionBasedAbstractFactory::class,
             Campaign\Command\SendCampaignRemindersCommand::class => ReflectionBasedAbstractFactory::class,
             Campaign\Service\CampaignReminderService::class => ReflectionBasedAbstractFactory::class,
@@ -2178,6 +2213,8 @@ return [
             'monarc_api_global_client_anr/vulnerabilities',
             'monarc_api_global_client_anr/deliverable',
             'monarc_api_global_client_anr/submissions',
+            'monarc_api_global_client_anr/prepared_reports',
+            'monarc_api_global_client_anr/signed_reports',
             'monarc_api_duplicate_client_anr',
             'monarc_api_models',
             'monarc_api_referentials',

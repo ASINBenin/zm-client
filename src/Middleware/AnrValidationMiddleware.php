@@ -60,6 +60,7 @@ class AnrValidationMiddleware implements MiddlewareInterface
         'monarc_api_global_client_anr/instance_risk_residual_acceptance',
         'monarc_api_global_client_anr/instance_risk_op_residual_acceptance',
         'monarc_api_global_client_anr/submissions',
+        'monarc_api_global_client_anr/prepared_reports',
     ];
 
     private Entity\User $connectedUser;
@@ -194,7 +195,7 @@ class AnrValidationMiddleware implements MiddlewareInterface
     /**
      * The analysis of a campaign keeps the structure of its model: only the evaluations can change while the
      * campaign is open, and nothing once it is closed. Exports and deliverables stay available.
-     * Sending the report to the BackOffice is allowed while the campaign is open.
+     * Preparing and sending the report to the BackOffice is allowed while the campaign is open.
      */
     private function isLockedByCampaign(Entity\Anr $anr, ServerRequestInterface $request, string $routeName): bool
     {

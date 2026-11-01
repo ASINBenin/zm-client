@@ -5,7 +5,6 @@ namespace Monarc\FrontOffice\Campaign\Service;
 use DateTime;
 use DateTimeInterface;
 use DateTimeZone;
-use Monarc\Core\Entity\DeliveriesModels;
 use Monarc\Core\Exception\Exception;
 use Monarc\Core\Service\ConnectedUserService;
 use Monarc\FrontOffice\Campaign\Exception\BoApiException;
@@ -13,7 +12,6 @@ use Monarc\FrontOffice\Campaign\Provider\BoApiProvider;
 use Monarc\FrontOffice\Entity\Anr;
 use Monarc\FrontOffice\Entity\ReportSubmission;
 use Monarc\FrontOffice\Exception\InvalidConfigurationException;
-use Monarc\FrontOffice\Service\DeliverableGenerationService;
 use Monarc\FrontOffice\Table\CampaignTable;
 use Monarc\FrontOffice\Table\ReportSubmissionTable;
 
@@ -26,7 +24,7 @@ class ReportSubmissionService
 
     public function __construct(
         private BoApiProvider $boApiProvider,
-        private DeliverableGenerationService $deliverableGenerationService,
+        private ReportDraftService $reportDraftService,
         private CampaignTable $campaignTable,
         private ReportSubmissionTable $reportSubmissionTable,
         ConnectedUserService $connectedUserService
@@ -35,18 +33,31 @@ class ReportSubmissionService
     }
 
     /**
-     * Envoie le rapport final de l'analyse au BO, qui en fait une nouvelle version.
-     * Une campagne qui exige la signature reçoit le PDF signé de la dernière demande de signature terminée ;
-     * sinon le rapport est généré à l'envoi et c'est l'état de l'analyse à cet instant qui est figé (non signé).
+     * Envoie au BO, qui en fait une nouvelle version, un rapport que l'utilisateur a déjà eu sous les yeux :
+     * soit le rapport préparé (data.token), soit un rapport signé du module de signature (data.signatureRequestId).
+     * Une campagne qui exige la signature n'accepte que le rapport signé.
+     *
+     * @param array{token?: string, signatureRequestId?: int} $data
      *
      * @return array{submission: array}
      */
-    public function submit(Anr $anr): array
+    public function submit(Anr $anr, array $data): array
     {
         $campaign = $this->campaignTable->findOneByAnr($anr);
-        $signedReportPath = $campaign?->isSignatureRequired() ? $this->getSignedReportPath($anr) : null;
-        $isSigned = $signedReportPath !== null;
-        $reportPath = $signedReportPath ?? $this->generateReport($anr);
+        $isSigned = !empty($data['signatureRequestId']);
+        if ($isSigned) {
+            $reportPath = $this->getSignedReportPath($anr, (int)$data['signatureRequestId']);
+        } elseif (!empty($data['token'])) {
+            if ($campaign?->isSignatureRequired()) {
+                throw new Exception(
+                    'Cette campagne exige un rapport signé : faites signer le rapport final avant de l\'envoyer.',
+                    412
+                );
+            }
+            $reportPath = $this->reportDraftService->getReportPath($anr, (string)$data['token']);
+        } else {
+            throw new Exception('Préparez le rapport, relisez-le, puis soumettez-le.', 412);
+        }
 
         try {
             $boSubmission = $this->boApiProvider->submitReport(
@@ -59,10 +70,6 @@ class ReportSubmissionService
             );
         } catch (BoApiException $e) {
             throw $e->toUserFacingException();
-        } finally {
-            if (!$isSigned) {
-                unlink($reportPath);
-            }
         }
 
         $submission = new ReportSubmission(
@@ -76,8 +83,47 @@ class ReportSubmissionService
             $this->connectedUserEmail
         );
         $this->reportSubmissionTable->save($submission);
+        if (!$isSigned) {
+            // Le rapport préparé ne sert qu'une fois ; le PDF signé reste dans le module de signature
+            unlink($reportPath);
+        }
 
         return ['submission' => $this->getPreparedSubmissionData($submission)];
+    }
+
+    /**
+     * Rapports finaux de l'analyse signés par tous leurs signataires, le plus récent d'abord.
+     *
+     * @return array{signedReports: array[]}
+     */
+    public function getSignedReports(Anr $anr): array
+    {
+        $signedReports = [];
+        foreach ($this->reportSubmissionTable->findSignedReports($anr) as $row) {
+            if (is_file($row['path'])) {
+                $signedReports[] = [
+                    'id' => (int)$row['id'],
+                    'title' => $row['title'],
+                    'signedAt' => (new DateTime($row['signedAt']))->format(DateTimeInterface::ATOM),
+                    'fileSize' => filesize($row['path']),
+                ];
+            }
+        }
+
+        return ['signedReports' => $signedReports];
+    }
+
+    /**
+     * Fichier PDF d'un rapport signé de l'analyse ; 412 s'il n'existe pas pour cette analyse.
+     */
+    public function getSignedReportPath(Anr $anr, int $signatureRequestId): string
+    {
+        $path = $this->reportSubmissionTable->findSignedReportPath($anr, $signatureRequestId);
+        if ($path === null || !is_file($path)) {
+            throw new Exception('Ce rapport signé n\'existe pas pour cette analyse.', 412);
+        }
+
+        return $path;
     }
 
     /**
@@ -100,36 +146,6 @@ class ReportSubmissionService
             ),
             'synchronization' => $synchronization,
         ];
-    }
-
-    private function getSignedReportPath(Anr $anr): string
-    {
-        $path = $this->reportSubmissionTable->findLastSignedReportPath($anr);
-        if ($path === null || !is_file($path)) {
-            throw new Exception(
-                'Cette campagne exige un rapport signé : faites signer le rapport final avant de l\'envoyer.',
-                412
-            );
-        }
-
-        return $path;
-    }
-
-    /**
-     * @return string Chemin du PDF généré, que l'appelant supprime après l'envoi.
-     */
-    private function generateReport(Anr $anr): string
-    {
-        return $this->deliverableGenerationService->generateDeliverableWithValues(
-            $anr,
-            DeliveriesModels::MODEL_RISK_ANALYSIS,
-            [
-                'format' => 'pdf',
-                'status' => 1,
-                'docname' => $anr->getLabel(),
-                'version' => (string)(\count($this->reportSubmissionTable->findNewestFirstByAnr($anr)) + 1),
-            ]
-        )['path'];
     }
 
     /**

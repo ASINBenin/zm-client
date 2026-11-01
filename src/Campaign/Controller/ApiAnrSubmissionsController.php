@@ -31,6 +31,6 @@ class ApiAnrSubmissionsController extends AbstractRestfulControllerRequestHandle
         /** @var Anr $anr */
         $anr = $this->getRequest()->getAttribute('anr');
 
-        return $this->getPreparedJsonResponse($this->reportSubmissionService->submit($anr));
+        return $this->getPreparedJsonResponse($this->reportSubmissionService->submit($anr, $data));
     }
 }

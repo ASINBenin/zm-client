@@ -26,16 +26,29 @@ class ReportSubmissionTable extends AbstractTable
     }
 
     /**
-     * Fichier PDF de la dernière demande de signature du rapport final de l'analyse signée par tous ses signataires,
-     * ou null s'il n'y en a pas.
+     * Demandes de signature du rapport final de l'analyse signées par tous leurs signataires, la plus récente d'abord.
+     *
+     * @return array{id: string, title: string, signedAt: string, path: string}[]
      */
-    public function findLastSignedReportPath(Anr $anr): ?string
+    public function findSignedReports(Anr $anr): array
+    {
+        return $this->entityManager->getConnection()->fetchAllAssociative(
+            'SELECT id, title, updated_at AS signedAt, file_signed AS path FROM signature_requests
+             WHERE anr_id = ? AND status = ? AND deliverable_doc_type = ? AND file_signed IS NOT NULL
+             ORDER BY id DESC',
+            [$anr->getId(), 'signed', DeliveriesModels::MODEL_RISK_ANALYSIS]
+        );
+    }
+
+    /**
+     * Fichier PDF d'une demande de signature du rapport final de l'analyse, ou null si elle n'est pas signée.
+     */
+    public function findSignedReportPath(Anr $anr, int $signatureRequestId): ?string
     {
         $path = $this->entityManager->getConnection()->fetchOne(
             'SELECT file_signed FROM signature_requests
-             WHERE anr_id = ? AND status = ? AND deliverable_doc_type = ? AND file_signed IS NOT NULL
-             ORDER BY id DESC LIMIT 1',
-            [$anr->getId(), 'signed', DeliveriesModels::MODEL_RISK_ANALYSIS]
+             WHERE id = ? AND anr_id = ? AND status = ? AND deliverable_doc_type = ? AND file_signed IS NOT NULL',
+            [$signatureRequestId, $anr->getId(), 'signed', DeliveriesModels::MODEL_RISK_ANALYSIS]
         );
 
         return $path === false ? null : $path;
