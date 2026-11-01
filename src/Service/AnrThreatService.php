@@ -156,12 +156,21 @@ class AnrThreatService
         /** @var Threat $threat */
         $threat = $this->threatTable->findByUuidAndAnr($uuid, $anr);
 
-        if (isset($data['status'])) {
-            $threat->setStatus((int)$data['status'])
-                ->setUpdater($this->connectedUser->getEmail());
+        $this->manageQualification($threat, $data);
 
-            $this->threatTable->save($threat);
+        if (isset($data['status'])) {
+            $threat->setStatus((int)$data['status']);
         }
+        if (isset($data['trend'])) {
+            $threat->setTrend((int)$data['trend']);
+        }
+        if (isset($data['comment'])) {
+            $threat->setComment((string)$data['comment']);
+        }
+
+        $threat->setUpdater($this->connectedUser->getEmail());
+
+        $this->threatTable->save($threat);
 
         return $threat;
     }
@@ -189,7 +198,7 @@ class AnrThreatService
     private function manageQualification(Threat $threat, array $data): void
     {
         if (isset($data['qualification'])) {
-            $threat->setQualification($data['qualification']);
+            $threat->setQualification((int)$data['qualification']);
 
             $instancesRisks = $this->instanceRiskTable->findByAnrAndThreatExcludeLocallySet(
                 $threat->getAnr(),

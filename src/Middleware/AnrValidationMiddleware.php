@@ -43,25 +43,61 @@ class AnrValidationMiddleware implements MiddlewareInterface
     ];
 
     /**
-     * Routes d'évaluation, les seules modifiables sur l'analyse d'une campagne ouverte.
+     * What the model imposes on the analysis of an open campaign: the scales, the knowledge base and the tree.
+     * Everything else stays editable.
      */
-    /** Steps of the method that depend only on the evaluations: marking them done is allowed in a campaign. */
-    private const CAMPAIGN_PROGRESS_FIELDS = ['evalRisks', 'evalPlanRisks', 'manageRisks'];
-
-    private const CAMPAIGN_EVALUATION_ROUTES = [
-        'monarc_api_global_client_anr/instance_risk',
-        'monarc_api_global_client_anr/instance_risk_op',
-        'monarc_api_global_client_anr/instance_consequences',
-        'monarc_api_global_client_anr/recommendations',
-        'monarc_api_global_client_anr/recommendations_sets',
-        'monarc_api_global_client_anr/recommendations_risks',
-        'monarc_api_global_client_anr/recommendations_risks_validate',
-        'monarc_api_global_client_anr/risks_management/batch_update',
-        'monarc_api_global_client_anr/instance_risk_residual_acceptance',
-        'monarc_api_global_client_anr/instance_risk_op_residual_acceptance',
-        'monarc_api_global_client_anr/submissions',
-        'monarc_api_global_client_anr/prepared_reports',
+    private const CAMPAIGN_LOCKED_ROUTES = [
+        'monarc_api_global_client_anr/scales',
+        'monarc_api_global_client_anr/scales_types',
+        'monarc_api_global_client_anr/scales_comments',
+        'monarc_api_global_client_anr/operational_scales',
+        'monarc_api_global_client_anr/operational_scales_comment',
+        'monarc_api_global_client_anr/soa_scale_comment',
+        'monarc_api_global_client_anr/assets',
+        'monarc_api_global_client_anr/amvs',
+        'monarc_api_global_client_anr/vulnerabilities',
+        'monarc_api_global_client_anr/themes',
+        'monarc_api_global_client_anr/referentials',
+        'monarc_api_global_client_anr/measures',
+        'monarc_api_global_client_anr/measuresmeasures',
+        'monarc_api_global_client_anr/soacategory',
+        'monarc_api_global_client_anr/rolf_tags',
+        'monarc_api_global_client_anr/rolf_risks',
+        'monarc_api_global_client_anr/objects',
+        'monarc_api_global_client_anr/objects_import',
+        'monarc_api_global_client_anr/objects_objects',
+        'monarc_api_global_client_anr/objects_duplication',
+        'monarc_api_global_client_anr/objects_categories',
+        'monarc_api_global_client_anr/library',
+        'monarc_api_global_client_anr/anr_instance_metadata_field',
+        'monarc_api_global_client_anr/instance_import',
+        'monarc_api_global_client_anr/snapshot_restore',
     ];
+
+    /** Fields of the analysis editable in a campaign: the method steps, their texts and the review settings. */
+    private const CAMPAIGN_ANALYSIS_FIELDS = [
+        'initAnrContext',
+        'initEvalContext',
+        'initRiskContext',
+        'initReassessmentStrategy',
+        'initDefContext',
+        'modelImpacts',
+        'modelSummary',
+        'evalRisks',
+        'evalPlanRisks',
+        'manageRisks',
+        'manageReassessmentTriggers',
+        'contextAnaRisk',
+        'synthThreat',
+        'contextGestRisk',
+        'synthAct',
+        'reassessmentLastReviewDate',
+        'reassessmentReviewFrequency',
+        'showRolfBrut',
+    ];
+
+    /** Fields of a threat set by its evaluation; the rest of its sheet comes from the model. */
+    private const CAMPAIGN_THREAT_EVALUATION_FIELDS = ['trend', 'comment', 'qualification', 'forceQualification'];
 
     private Entity\User $connectedUser;
 
@@ -193,9 +229,8 @@ class AnrValidationMiddleware implements MiddlewareInterface
     }
 
     /**
-     * The analysis of a campaign keeps the structure of its model: only the evaluations can change while the
-     * campaign is open, and nothing once it is closed. Exports and deliverables stay available.
-     * Preparing and sending the report to the BackOffice is allowed while the campaign is open.
+     * The analysis of a campaign keeps what its model imposes while the campaign is open, and nothing can change
+     * once it is closed. Exports and deliverables stay available.
      */
     private function isLockedByCampaign(Entity\Anr $anr, ServerRequestInterface $request, string $routeName): bool
     {
@@ -212,27 +247,25 @@ class AnrValidationMiddleware implements MiddlewareInterface
             return false;
         }
 
-        return $campaign->isClosed()
-            || !(\in_array($routeName, self::CAMPAIGN_EVALUATION_ROUTES, true)
-                || $this->isInstanceImpactsUpdate($routeName, $method)
-                || $this->isStepProgressUpdate($request, $routeName));
+        return $campaign->isClosed() || $this->isImposedByCampaignModel($request, $routeName);
     }
 
-    /**
-     * "Edit impacts" of an instance saves all its consequences at once with a PUT: it only sets their values, which is
-     * an evaluation. Moving (PATCH), creating or deleting an instance stays locked.
-     */
-    private function isInstanceImpactsUpdate(string $routeName, string $method): bool
+    private function isImposedByCampaignModel(ServerRequestInterface $request, string $routeName): bool
     {
-        return $routeName === 'monarc_api_global_client_anr/instance' && $method === Request::METHOD_PUT;
+        return match ($routeName) {
+            /* "Edit impacts" saves the consequences of an instance with a PUT; moving (PATCH), creating or deleting
+            it changes the tree. */
+            'monarc_api_global_client_anr/instance' => $request->getMethod() !== Request::METHOD_PUT,
+            'monarc_api_global_client_anr/threats' => !$this
+                ->isPatchOfFields($request, self::CAMPAIGN_THREAT_EVALUATION_FIELDS),
+            'monarc_api_client_anr' => !$this->isPatchOfFields($request, self::CAMPAIGN_ANALYSIS_FIELDS),
+            default => \in_array($routeName, self::CAMPAIGN_LOCKED_ROUTES, true),
+        };
     }
 
-    /**
-     * The update of the analysis itself is allowed only to mark the evaluation steps of the method as done.
-     */
-    private function isStepProgressUpdate(ServerRequestInterface $request, string $routeName): bool
+    private function isPatchOfFields(ServerRequestInterface $request, array $allowedFields): bool
     {
-        if ($routeName !== 'monarc_api_client_anr' || $request->getMethod() !== Request::METHOD_PATCH) {
+        if ($request->getMethod() !== Request::METHOD_PATCH) {
             return false;
         }
 
@@ -246,7 +279,7 @@ class AnrValidationMiddleware implements MiddlewareInterface
 
         $fields = array_diff(array_keys($data), ['id']);
 
-        return $fields !== [] && array_diff($fields, self::CAMPAIGN_PROGRESS_FIELDS) === [];
+        return $fields !== [] && array_diff($fields, $allowedFields) === [];
     }
 
     /**
