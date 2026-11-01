@@ -214,7 +214,17 @@ class AnrValidationMiddleware implements MiddlewareInterface
 
         return $campaign->isClosed()
             || !(\in_array($routeName, self::CAMPAIGN_EVALUATION_ROUTES, true)
+                || $this->isInstanceImpactsUpdate($routeName, $method)
                 || $this->isStepProgressUpdate($request, $routeName));
+    }
+
+    /**
+     * "Edit impacts" of an instance saves all its consequences at once with a PUT: it only sets their values, which is
+     * an evaluation. Moving (PATCH), creating or deleting an instance stays locked.
+     */
+    private function isInstanceImpactsUpdate(string $routeName, string $method): bool
+    {
+        return $routeName === 'monarc_api_global_client_anr/instance' && $method === Request::METHOD_PUT;
     }
 
     /**
