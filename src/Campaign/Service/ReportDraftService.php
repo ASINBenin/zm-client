@@ -12,7 +12,8 @@ use Monarc\FrontOffice\Table\ReportSubmissionTable;
 
 /**
  * Rapport préparé : le PDF est généré et gardé de côté pour que l'utilisateur le relise, puis c'est ce fichier,
- * et lui seul, qui est envoyé au BO. Il expire au bout d'une heure et n'est utilisable qu'une fois.
+ * et lui seul, qui est envoyé au BO. Une analyse n'en a qu'un à la fois ; il expire au bout d'une heure et n'est
+ * utilisable qu'une fois.
  */
 class ReportDraftService
 {
@@ -25,14 +26,15 @@ class ReportDraftService
     }
 
     /**
-     * Génère le rapport final de l'analyse en PDF et le garde de côté.
+     * Génère le rapport final de l'analyse en PDF et le garde de côté, à la place du précédent.
      *
      * @return array{token: string, fileSize: int, createdAt: string, expiresAt: string}
      */
     public function prepare(Anr $anr): array
     {
         $directory = $this->getDirectory($anr);
-        $this->removeExpired($directory);
+        $this->removeExpired();
+        $this->removeAll($directory);
 
         $generatedPath = $this->deliverableGenerationService->generateDeliverableWithValues(
             $anr,
@@ -61,6 +63,32 @@ class ReportDraftService
     }
 
     /**
+     * Rapport préparé de l'analyse s'il est encore valable, pour que l'utilisateur le retrouve en rouvrant l'écran.
+     *
+     * @return array{token: string, fileSize: int, createdAt: string, expiresAt: string}|null
+     */
+    public function getCurrent(Anr $anr): ?array
+    {
+        $this->removeExpired();
+        $paths = glob($this->getDirectory($anr) . '/*.pdf') ?: [];
+
+        return $paths === [] ? null : $this->getMetadata(basename($paths[0], '.pdf'), $paths[0]);
+    }
+
+    /**
+     * Supprime le rapport préparé : l'utilisateur y renonce.
+     */
+    public function discard(Anr $anr, string $token): void
+    {
+        if (preg_match('/^[0-9a-f]{32}$/', $token) === 1) {
+            $path = $this->getPath($this->getDirectory($anr), $token);
+            if (is_file($path)) {
+                unlink($path);
+            }
+        }
+    }
+
+    /**
      * Chemin du rapport préparé de l'analyse ; 412 s'il n'existe pas ou s'il a expiré.
      */
     public function getReportPath(Anr $anr, string $token): string
@@ -83,12 +111,22 @@ class ReportDraftService
         return $directory . '/' . $token . '.pdf';
     }
 
-    private function removeExpired(string $directory): void
+    /**
+     * Supprime les rapports préparés expirés de toutes les analyses.
+     */
+    private function removeExpired(): void
     {
-        foreach (glob($directory . '/*.pdf') ?: [] as $path) {
+        foreach (glob(DATA_PATH . '/prepared-reports/*/*.pdf') ?: [] as $path) {
             if (filemtime($path) + self::VALIDITY_IN_SECONDS < time()) {
                 unlink($path);
             }
+        }
+    }
+
+    private function removeAll(string $directory): void
+    {
+        foreach (glob($directory . '/*.pdf') ?: [] as $path) {
+            unlink($path);
         }
     }
 

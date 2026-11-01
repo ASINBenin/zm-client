@@ -19,12 +19,29 @@ class ApiAnrPreparedReportsController extends AbstractRestfulControllerRequestHa
     {
     }
 
+    public function getList()
+    {
+        /** @var Anr $anr */
+        $anr = $this->getRequest()->getAttribute('anr');
+
+        return $this->getPreparedJsonResponse(['preparedReport' => $this->reportDraftService->getCurrent($anr)]);
+    }
+
     public function create($data)
     {
         /** @var Anr $anr */
         $anr = $this->getRequest()->getAttribute('anr');
 
         return $this->getPreparedJsonResponse(['preparedReport' => $this->reportDraftService->prepare($anr)]);
+    }
+
+    public function delete($id)
+    {
+        /** @var Anr $anr */
+        $anr = $this->getRequest()->getAttribute('anr');
+        $this->reportDraftService->discard($anr, (string)$id);
+
+        return $this->getSuccessfulJsonResponse();
     }
 
     public function get($id)
