@@ -21,4 +21,12 @@ class ApiCampaignsController extends AbstractRestfulControllerRequestHandler
     {
         return $this->getPreparedJsonResponse($this->campaignService->getCampaigns());
     }
+
+    /**
+     * @param string $id
+     */
+    public function get($id)
+    {
+        return $this->getPreparedJsonResponse($this->campaignService->getCampaign((int)$id));
+    }
 }

@@ -17,4 +17,19 @@ class CampaignNotificationTable extends AbstractTable
     {
         return $this->getRepository()->findOneBy(['boCampaignId' => $boCampaignId, 'type' => $type]) !== null;
     }
+
+    /**
+     * @param string[] $types
+     */
+    public function removeSent(int $boCampaignId, array $types): void
+    {
+        $this->getRepository()->createQueryBuilder('n')
+            ->delete()
+            ->where('n.boCampaignId = :boCampaignId')
+            ->andWhere('n.type IN (:types)')
+            ->setParameter('boCampaignId', $boCampaignId)
+            ->setParameter('types', $types)
+            ->getQuery()
+            ->execute();
+    }
 }

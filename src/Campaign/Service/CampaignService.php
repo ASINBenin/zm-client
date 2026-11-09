@@ -34,14 +34,7 @@ class CampaignService
      */
     public function getCampaigns(): array
     {
-        $synchronization = self::SYNCHRONIZATION_OK;
-        try {
-            $this->campaignSyncService->sync();
-        } catch (InvalidConfigurationException) {
-            $synchronization = self::SYNCHRONIZATION_NOT_CONFIGURED;
-        } catch (BoApiException) {
-            $synchronization = self::SYNCHRONIZATION_FAILED;
-        }
+        $synchronization = $this->synchronize();
 
         return [
             'campaigns' => array_map(
@@ -50,6 +43,39 @@ class CampaignService
             ),
             'synchronization' => $synchronization,
         ];
+    }
+
+    /**
+     * Une campagne de l'entité, à jour de ses dates et de son statut dans le BO.
+     *
+     * @return array{campaign: array, synchronization: string}
+     */
+    public function getCampaign(int $campaignId): array
+    {
+        $synchronization = $this->synchronize();
+        /** @var Campaign|null $campaign */
+        $campaign = $this->campaignTable->findById($campaignId, false);
+        if ($campaign === null) {
+            throw new Exception('Cette campagne n\'existe pas.', 412);
+        }
+
+        return [
+            'campaign' => $this->getPreparedCampaignData($campaign),
+            'synchronization' => $synchronization,
+        ];
+    }
+
+    private function synchronize(): string
+    {
+        try {
+            $this->campaignSyncService->sync();
+        } catch (InvalidConfigurationException) {
+            return self::SYNCHRONIZATION_NOT_CONFIGURED;
+        } catch (BoApiException) {
+            return self::SYNCHRONIZATION_FAILED;
+        }
+
+        return self::SYNCHRONIZATION_OK;
     }
 
     /**
@@ -91,6 +117,7 @@ class CampaignService
     {
         return [
             'id' => $campaign->getId(),
+            'boCampaignId' => $campaign->getBoCampaignId(),
             'label' => $campaign->getLabel(),
             'description' => $campaign->getDescription(),
             'status' => $campaign->getStatus(),

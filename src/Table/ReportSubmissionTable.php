@@ -26,6 +26,14 @@ class ReportSubmissionTable extends AbstractTable
     }
 
     /**
+     * Vrai si un fichier de cette empreinte SHA-256 a déjà été envoyé pour l'analyse.
+     */
+    public function existsByAnrAndSha256(Anr $anr, string $sha256): bool
+    {
+        return $this->getRepository()->findOneBy(['anr' => $anr, 'sha256' => $sha256]) !== null;
+    }
+
+    /**
      * Demandes de signature du rapport final de l'analyse signées par tous leurs signataires, la plus récente d'abord.
      *
      * @return array{id: string, title: string, signedAt: string, path: string}[]

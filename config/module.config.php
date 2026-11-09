@@ -1418,9 +1418,12 @@ return [
                 ],
             ],
             'monarc_api_campaigns' => [
-                'type' => 'literal',
+                'type' => 'segment',
                 'options' => [
-                    'route' => '/api/campaigns',
+                    'route' => '/api/campaigns[/:id]',
+                    'constraints' => [
+                        'id' => '[0-9]+',
+                    ],
                     'defaults' => [
                         'controller' => PipeSpec::class,
                         'middleware' => new PipeSpec(Campaign\Controller\ApiCampaignsController::class),

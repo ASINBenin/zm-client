@@ -47,6 +47,12 @@ class ReportSubmissionService
         $isSigned = !empty($data['signatureRequestId']);
         if ($isSigned) {
             $reportPath = $this->getSignedReportPath($anr, (int)$data['signatureRequestId']);
+            if ($this->isAlreadySubmitted($anr, $reportPath)) {
+                throw new Exception(
+                    'Ce rapport signé a déjà été soumis : faites signer une nouvelle version du rapport final.',
+                    412
+                );
+            }
         } elseif (!empty($data['token'])) {
             if ($campaign?->isSignatureRequired()) {
                 throw new Exception(
@@ -92,7 +98,7 @@ class ReportSubmissionService
     }
 
     /**
-     * Rapports finaux de l'analyse signés par tous leurs signataires, le plus récent d'abord.
+     * Rapports finaux de l'analyse signés par tous leurs signataires et pas encore soumis, le plus récent d'abord.
      *
      * @return array{signedReports: array[]}
      */
@@ -100,7 +106,7 @@ class ReportSubmissionService
     {
         $signedReports = [];
         foreach ($this->reportSubmissionTable->findSignedReports($anr) as $row) {
-            if (is_file($row['path'])) {
+            if (is_file($row['path']) && !$this->isAlreadySubmitted($anr, $row['path'])) {
                 $signedReports[] = [
                     'id' => (int)$row['id'],
                     'title' => $row['title'],
@@ -111,6 +117,12 @@ class ReportSubmissionService
         }
 
         return ['signedReports' => $signedReports];
+    }
+
+    // Le BO garde l'empreinte de chaque fichier reçu : le même PDF signé ne repart pas une seconde fois
+    private function isAlreadySubmitted(Anr $anr, string $reportPath): bool
+    {
+        return $this->reportSubmissionTable->existsByAnrAndSha256($anr, hash_file('sha256', $reportPath));
     }
 
     /**

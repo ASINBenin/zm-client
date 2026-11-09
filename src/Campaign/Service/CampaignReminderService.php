@@ -54,9 +54,10 @@ class CampaignReminderService
                     CampaignNotification::TYPE_ANSWER_J7,
                     CampaignNotification::TYPE_ANSWER_J1,
                     $this->getAdministratorAddresses(),
-                    sprintf('[MONARC] Campagne « %s » : réponse attendue', $campaign->getLabel()),
-                    'Votre entité n\'a pas encore participé à la campagne « %s ». La date limite de réponse est le %s '
-                    . '(%s). Pour participer, ouvrez le menu « Campagnes » de votre MONARC.',
+                    sprintf('[MONARC] Campagne « %s » : démarrage attendu', $campaign->getLabel()),
+                    'Votre entité n\'a pas encore démarré la campagne « %s », à laquelle la participation est '
+                    . 'obligatoire. La date de démarrage attendue est le %s (%s). Pour participer, ouvrez le menu '
+                    . '« Campagnes » de votre MONARC.',
                     $campaign->getResponseDeadline()
                 );
             } elseif ($campaign->getAnr() !== null
@@ -70,7 +71,7 @@ class CampaignReminderService
                     $this->getAnalysisAddresses($campaign),
                     sprintf('[MONARC] Campagne « %s » : rapport attendu', $campaign->getLabel()),
                     'Aucun rapport n\'a encore été envoyé pour la campagne « %s ». La campagne se termine le %s (%s). '
-                    . 'Envoyez le rapport depuis le menu « Campagnes », bouton « Rapports ».',
+                    . 'Envoyez le rapport depuis la page de la campagne.',
                     $campaign->getEndDate()
                 );
             }
@@ -108,7 +109,14 @@ class CampaignReminderService
             htmlspecialchars($campaign->getLabel(), ENT_QUOTES, 'UTF-8'),
             $deadline->format('d/m/Y'),
             $daysLeft === 0 ? 'aujourd\'hui' : sprintf('dans %d jour%s', $daysLeft, $daysLeft > 1 ? 's' : '')
-        ) . '</p>';
+        ) . '</p>' . sprintf(
+            '<p><a href="%s">Ouvrir la campagne dans MONARC</a></p>',
+            htmlspecialchars(
+                $this->configService->getHost() . '/#/client/campaigns/' . $campaign->getId(),
+                ENT_QUOTES,
+                'UTF-8'
+            )
+        );
         $sentCount = 0;
         foreach (array_unique($addresses) as $address) {
             try {
