@@ -16,6 +16,8 @@ use Monarc\Core\Service\ConnectedUserService;
 use Monarc\FrontOffice\Exception\AccessForbiddenException;
 use Monarc\FrontOffice\Entity\Anr;
 use Monarc\FrontOffice\Entity\InstanceRiskOp;
+use Monarc\FrontOffice\Entity\Soa;
+use Monarc\FrontOffice\Entity\SoaScaleComment;
 use Monarc\FrontOffice\Entity\SoaCategory;
 use Monarc\FrontOffice\Entity\User;
 use Monarc\FrontOffice\Entity\UserRole;
@@ -62,6 +64,8 @@ class StatsAnrService
     /** @var string */
     private $apiKey;
 
+    private string $instanceName;
+
     public function __construct(
         private Table\AnrTable $anrTable,
         private Table\ScaleTable $scaleTable,
@@ -69,6 +73,7 @@ class StatsAnrService
         private Table\InstanceRiskOpTable $operationalRiskTable,
         private Table\ReferentialTable $referentialTable,
         private Table\SoaTable $soaTable,
+        private Table\SoaScaleCommentTable $soaScaleCommentTable,
         private StatsApiProvider $statsApiProvider,
         private Table\SnapshotTable $snapshotTable,
         ConnectedUserService $connectedUserService,
@@ -76,6 +81,7 @@ class StatsAnrService
     ) {
         $this->connectedUser = $connectedUserService->getConnectedUser();
         $this->apiKey = $config['statsApi']['apiKey'] ?? '';
+        $this->instanceName = $config['instanceName'] ?? '';
     }
 
     public function isStatsAvailable(): bool
@@ -227,10 +233,13 @@ class StatsAnrService
                 continue;
             }
             $anrStatsForRtvc = $this->collectAnrStatsForRiskThreatVulnerabilityAndCartography($anr);
+            // Le Back-Office ne connaît des analyses que leur UUID : il les rattache à l'entité par ce contexte
             $statsData[] = new StatsDataObject([
                 'anr' => $anr->getUuid(),
                 'type' => StatsDataObject::TYPE_RISK,
-                'data' => $anrStatsForRtvc[StatsDataObject::TYPE_RISK],
+                'data' => $anrStatsForRtvc[StatsDataObject::TYPE_RISK] + [
+                    'context' => ['entity' => $this->instanceName],
+                ],
                 'date' => $currentDate,
             ]);
             $statsData[] = new StatsDataObject([
@@ -340,6 +349,7 @@ class StatsAnrService
     private function collectAnrStatsForCompliance(Anr $anr): array
     {
         $complianceStatsValues = [];
+        $maxComplianceLevel = $this->getMaxComplianceLevel($anr);
         $references = $this->referentialTable->findByAnr($anr);
         foreach ($references as $reference) {
             /** @var SoaCategory $soaCategory */
@@ -377,7 +387,7 @@ class StatsAnrService
                     $currentCategoryValues['controls'][] = [
                         'code' => $measure->getCode(),
                         'measure' => $measure->getUuid(),
-                        'value' => $soa->getEx() === 1 ? '0.00' : bcmul((string)$soa->getCompliance(), '0.20', 2),
+                        'value' => $this->getComplianceRatio($soa, $maxComplianceLevel),
                     ];
                     $targetCategoryValues['controls'][] = [
                         'code' => $measure->getCode(),
@@ -387,7 +397,7 @@ class StatsAnrService
 
                     $currentSoaTotalCompliance = bcadd(
                         $currentSoaTotalCompliance,
-                        $soa->getEx() === 1 ? '0' : (string)$soa->getCompliance(),
+                        $this->getComplianceRatio($soa, $maxComplianceLevel),
                         2
                     );
                     if ($soa->getEx() !== 1) {
@@ -397,11 +407,7 @@ class StatsAnrService
 
                 $currentControlsNumber = \count($currentCategoryValues['controls']);
                 if ($currentControlsNumber > 0) {
-                    $currentCategoryValues['value'] = bcmul(bcdiv(
-                        $currentSoaTotalCompliance,
-                        (string)$currentControlsNumber,
-                        2
-                    ), '0.2', 2);
+                    $currentCategoryValues['value'] = bcdiv($currentSoaTotalCompliance, (string)$currentControlsNumber, 2);
                     $targetCategoryValues['value'] = bcdiv((string)$targetSoaCount, (string)$currentControlsNumber, 2);
 
                     if (!isset($complianceStatsValues[$reference->getUuid()])) {
@@ -422,6 +428,35 @@ class StatsAnrService
         }
 
         return array_values($complianceStatsValues);
+    }
+
+    /**
+     * Niveau de conformité choisi dans l'échelle de l'analyse, de 0 à 1 (0 pour une mesure exclue ou non évaluée).
+     */
+    private function getComplianceRatio(Soa $soa, int $maxComplianceLevel): string
+    {
+        $soaScaleComment = $soa->getSoaScaleComment();
+        if ($soa->getEx() === 1 || $soaScaleComment === null || $maxComplianceLevel === 0) {
+            return '0.00';
+        }
+
+        return bcdiv((string)$soaScaleComment->getScaleIndex(), (string)$maxComplianceLevel, 2);
+    }
+
+    /**
+     * Plus haut niveau de l'échelle de conformité de l'analyse : les niveaux masqués sont hors échelle.
+     */
+    private function getMaxComplianceLevel(Anr $anr): int
+    {
+        $levels = array_map(
+            static fn(SoaScaleComment $soaScaleComment) => $soaScaleComment->getScaleIndex(),
+            array_filter(
+                $this->soaScaleCommentTable->findByAnr($anr),
+                static fn(SoaScaleComment $soaScaleComment) => !$soaScaleComment->isHidden()
+            )
+        );
+
+        return $levels === [] ? 0 : max($levels);
     }
 
     private function prepareScalesRanges(Anr $anr): array

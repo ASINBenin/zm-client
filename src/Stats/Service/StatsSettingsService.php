@@ -53,8 +53,8 @@ class StatsSettingsService
         $anrSettings = array_column($anrSettings, null, 'anrId');
 
         foreach ($this->anrTable->findByIds(array_keys($anrSettings)) as $anr) {
-            $anr->setIsVisibleOnDashboard((int)$anrSettings[$anr->getId()]['isVisible'])
-                ->setIsStatsCollected((int)$anrSettings[$anr->getId()]['isStatsCollected']);
+            // Collecte obligatoire (statistiques inter-entités du Back-Office) : seul l'affichage reste réglable
+            $anr->setIsVisibleOnDashboard((int)$anrSettings[$anr->getId()]['isVisible']);
             $updatedAnrsSettings[] = [
                 'anrId' => $anr->getId(),
                 'anrName' => $anr->getLabel(),
